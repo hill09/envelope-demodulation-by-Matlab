@@ -1,0 +1,87 @@
+data = load('yangli.txt');
+clc;
+Td=1;Fs=1/Td;
+clc;
+Td=1;Fs=1/Td;
+Wp=0.3*pi;Ws=0.4*pi;
+Rp=20;
+As=30;
+Omegap=2/Td*tan(Wp/2);
+Omegas=2/Td*tan(Ws/2);
+[N,Omegac]=buttord(Omegap,Omegas,Rp,As,'s');
+%2、计算连续系统系数a,b0
+%归一化（模板巴特沃斯的截止频率Omegac=1）的模拟滤波器，零点、极点、增益
+%级联式，z0,p0,k0分别为零点、极点、增益
+%去归一化（求出真正滤波器的Omegac）,得到级联式
+%级联式转换为一般式（由根求系数）：为由一般式为跳板，计算并联式
+[z0,p0,k0]=buttap(N);
+[Bap,Aap]=zp2tf(z0,p0,k0); 
+[b,a]=lp2lp(Bap,Aap,Omegac);
+[bz,az]=bilinear(b,a,Fs); 
+[H,W]=freqs(bz,az);
+
+
+fs=16384;%采样率
+T=1;%间隔长度
+n=round(T*fs);%采样点个数
+t=linspace(0,T,n);
+y=data;
+figure;
+subplot(2,2,1),plot(t,y);
+title('输入信号时域图像');
+xlabel('t/s');
+ylabel('V');
+
+fs=25600;
+N=16384;   
+n=0:N-1;t=n/fs;   
+y=data;  
+x=fft(y,N);    
+mag=abs(x);     
+f=n*fs/N;    
+
+subplot(2,2,2),plot(f(1:N/2),mag(1:N/2)); 
+xlabel('频率/Hz');
+ylabel('振幅');
+title('输入信号频域图像');
+grid on;
+
+final=filter(bz, az, y); 
+subplot(2,2,3);
+plot(t,final);  
+title( '滤波后信号波形时域波形' );
+xlabel('t/s');
+ylabel('V');
+
+fs=25600;
+N=16384;   
+n=0:N-1;t=n/fs;   
+y=final;  
+x=fft(y,N);    
+mag=abs(x);     
+f=n*fs/N;    
+
+subplot(2,2,4),plot(f(1:N/2),mag(1:N/2)); 
+xlabel('频率/Hz');
+ylabel('振幅');
+title('滤波后信号波形频域图像');
+grid on;
+
+fbe=[0 0.05 0.1 1];
+damps=[1 1 0 0];
+b = firpm(100,fbe,damps);
+[H_filter,W_filter]=freqz(b,1,512);
+envv=(pi/2)*filter(b,1,abs(final));
+
+
+figure(2);
+subplot(2,1,1);
+plot(t,envv);
+title("包络信号波形");
+subplot(2,1,2);
+plot(f,fftshift(envv/Fs));
+title("包络信号频谱");
+figure(3);
+plot(W_filter/pi,abs(H_filter));
+title("滤波器频谱");
+
